@@ -1,77 +1,62 @@
-// Leonida Ledger — local preview server.
+// Leonida Ledger — preview server for local use and screenshots.
 //
-// Serves the app/ directory over HTTP so the guide can be opened in a
-// browser exactly as a reader (or the screenshot tooling) would see it.
-// Node standard library only; no dependencies, nothing leaves the machine.
+//   node serve.ts            serves app/ at http://localhost:8080
+//   node serve.ts --port N   same, on another port
 //
-//   node serve.ts [--port 8080]
-//
-// Then open http://localhost:8080/ — add ?shot=list, ?shot=roadmap,
-// ?shot=tracker or ?shot=detail&trophy=<id> for the fixed shot states.
+// Nothing but the Node standard library: it maps each request path to a
+// file under app/, refuses paths that climb out of it, and answers with a
+// small table of content types. It exists so the guide can be opened
+// exactly as a reader (or the screenshot tooling) would see it; the app
+// itself needs no server beyond any static file host.
 
 import { createServer } from 'node:http';
-import { readFile, stat } from 'node:fs/promises';
-import { extname, join, normalize } from 'node:path';
+import { readFile } from 'node:fs/promises';
+import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-const APP_ROOT = fileURLToPath(new URL('./app/', import.meta.url));
+const root = path.join(path.dirname(fileURLToPath(import.meta.url)), 'app');
 
-const MIME = new Map([
-  ['.html', 'text/html; charset=utf-8'],
-  ['.css', 'text/css; charset=utf-8'],
-  ['.js', 'text/javascript; charset=utf-8'],
-  ['.mjs', 'text/javascript; charset=utf-8'],
-  ['.json', 'application/json; charset=utf-8'],
-  ['.svg', 'image/svg+xml'],
-  ['.png', 'image/png'],
-  ['.jpg', 'image/jpeg'],
-  ['.jpeg', 'image/jpeg'],
-  ['.ico', 'image/x-icon'],
-  ['.txt', 'text/plain; charset=utf-8'],
-]);
+const TYPES = {
+  '.html': 'text/html; charset=utf-8',
+  '.css': 'text/css; charset=utf-8',
+  '.js': 'text/javascript; charset=utf-8',
+  '.json': 'application/json; charset=utf-8',
+  '.jpg': 'image/jpeg',
+  '.png': 'image/png',
+  '.svg': 'image/svg+xml',
+  '.ico': 'image/x-icon',
+};
 
-function portFromArgs(argv) {
-  const at = argv.indexOf('--port');
-  const value = at >= 0 ? Number(argv[at + 1]) : NaN;
-  return Number.isInteger(value) && value > 0 ? value : 8080;
+function wantedPort(argv) {
+  const flag = argv.indexOf('--port');
+  const n = flag >= 0 ? Number.parseInt(argv[flag + 1], 10) : NaN;
+  return Number.isInteger(n) && n > 0 && n < 65536 ? n : 8080;
 }
 
-// Map a request path to a file inside app/, refusing anything that climbs out.
-function resolveInside(urlPath) {
-  const clean = normalize(decodeURIComponent(urlPath)).replace(/^[/\\]+/, '');
-  const full = join(APP_ROOT, clean);
-  return full.startsWith(APP_ROOT) ? full : null;
-}
-
-const server = createServer(async (req, res) => {
+async function handle(req, res) {
+  const url = new URL(req.url || '/', 'http://localhost');
+  const rel = decodeURIComponent(url.pathname).replace(/^\/+/, '') || 'index.html';
+  const file = path.normalize(path.join(root, rel));
+  if (!file.startsWith(root + path.sep) && file !== root) {
+    res.writeHead(403, { 'content-type': 'text/plain' }).end('outside the app root');
+    return;
+  }
   try {
-    const { pathname } = new URL(req.url ?? '/', 'http://localhost');
-    let file = resolveInside(pathname === '/' ? '/index.html' : pathname);
-    if (file === null) {
-      res.writeHead(403).end('forbidden');
-      return;
-    }
-    let info = await stat(file).catch(() => null);
-    if (info?.isDirectory()) {
-      file = join(file, 'index.html');
-      info = await stat(file).catch(() => null);
-    }
-    if (!info?.isFile()) {
-      res.writeHead(404, { 'content-type': 'text/plain; charset=utf-8' }).end('not found');
-      return;
-    }
     const body = await readFile(file);
     res.writeHead(200, {
-      'content-type': MIME.get(extname(file).toLowerCase()) ?? 'application/octet-stream',
+      'content-type': TYPES[path.extname(file).toLowerCase()] || 'application/octet-stream',
       'cache-control': 'no-store',
-    });
-    res.end(body);
-  } catch (err) {
-    res.writeHead(500, { 'content-type': 'text/plain; charset=utf-8' }).end(String(err));
+    }).end(body);
+  } catch {
+    res.writeHead(404, { 'content-type': 'text/plain' }).end('not found');
   }
-});
+}
 
-const port = portFromArgs(process.argv.slice(2));
-server.listen(port, () => {
-  console.log(`Leonida Ledger preview: http://localhost:${port}/`);
+const port = wantedPort(process.argv.slice(2));
+createServer((req, res) => {
+  handle(req, res).catch(() => {
+    res.writeHead(500, { 'content-type': 'text/plain' }).end('server error');
+  });
+}).listen(port, () => {
+  console.log(`Leonida Ledger is being served at http://localhost:${port}/`);
 });

@@ -1,13 +1,13 @@
-// Rendering: the filter chips, the trophy list, the detail panel and the
-// header progress. Everything is built with textContent, never by injecting
-// markup, so a trophy name can contain any punctuation PlayStation chose.
+// Leonida Ledger — rendering.
+//
+// Every view is built here from plain DOM calls, so the page never needs a
+// framework or a build step. main.js owns the state; this module only
+// turns state into elements.
 
-import { GRADE_INFO, KIND_INFO, KIND_ORDER } from './data.js';
+import { GRADE_LABEL, KIND_LABEL, shownDescription, shownName } from './data.js';
+import { PHASES, ROADMAP_FACTS, ROADMAP_INTRO, ROADMAP_SOURCES } from './roadmap.js';
 
-const TROPHY_CUP_PATH =
-  'M5 3h14v2h3v4a5 5 0 0 1-5 5h-.42A6 6 0 0 1 13 17.92V20h4v2H7v-2h4v-2.08A6 6 0 0 1 6.42 14H6a5 5 0 0 1-5-5V5h3V3h1zm14 4v4.5A2.5 2.5 0 0 0 21.5 9V7H19zM5 7H3.5v2A2.5 2.5 0 0 0 6 11.5V7H5z';
-
-function h(tag, className, text) {
+function el(tag, className, text) {
   const node = document.createElement(tag);
   if (className) node.className = className;
   if (text !== undefined) node.textContent = text;
@@ -15,189 +15,156 @@ function h(tag, className, text) {
 }
 
 export function gradeBadge(trophy) {
-  const badge = h('span', `grade-badge grade-${trophy.grade}`);
-  // A constant markup string (no trophy data in it): an inline SVG cup,
-  // parsed as real SVG by the HTML parser, coloured by the CSS grade class.
-  const icon = h('span');
-  icon.innerHTML = `<svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="${TROPHY_CUP_PATH}"/></svg>`;
-  badge.append(icon.firstChild, GRADE_INFO[trophy.grade].label.toUpperCase());
+  const badge = el('span', `badge grade-${trophy.grade}`, GRADE_LABEL[trophy.grade]);
+  badge.title = `${trophy.points} PlayStation points`;
   return badge;
 }
 
-// A trophy is shielded when the spoiler shield is on, PlayStation keeps it
-// secret, and the player has not earned it yet.
-export function isShielded(trophy, spoilersOn, isEarned) {
-  return spoilersOn && trophy.hidden && !isEarned(trophy.id);
+export function kindBadge(trophy) {
+  return el('span', 'badge kind', KIND_LABEL[trophy.kind] ?? trophy.kind);
 }
 
-export function displayName(trophy, shielded) {
-  return shielded ? 'Hidden trophy' : trophy.name;
+// One row of the checklist. Clicking the row opens the trophy's detail;
+// the checkbox at its left is the tracker control. earnedIds is the live
+// earned set, used to decide whether a secret trophy may show its name.
+export function trophyCard(trophy, { earned, earnedIds, shieldOn, selected, onToggle, onOpen }) {
+  const card = el('article', 'card');
+  if (earned) card.classList.add('is-earned');
+  if (selected) card.classList.add('is-selected');
+  card.dataset.trophyId = trophy.id;
+
+  const check = el('input', 'card-check');
+  check.type = 'checkbox';
+  check.checked = earned;
+  check.setAttribute('aria-label', `Mark ${trophy.name} as earned`);
+  check.addEventListener('change', () => onToggle(trophy.id));
+  check.addEventListener('click', (event) => event.stopPropagation());
+
+  const body = el('div', 'card-body');
+  const titleRow = el('div', 'card-title-row');
+  titleRow.append(el('h3', 'card-name', shownName(trophy, earnedIds, shieldOn)));
+  if (trophy.missable) titleRow.append(el('span', 'badge missable', 'Missable'));
+  if (trophy.secret) titleRow.append(el('span', 'badge secret', 'Secret'));
+  body.append(titleRow);
+  body.append(el('p', 'card-desc', shownDescription(trophy, earnedIds, shieldOn)));
+
+  const meta = el('div', 'card-meta');
+  meta.append(gradeBadge(trophy), kindBadge(trophy), el('span', 'points', `${trophy.points} pts`));
+  body.append(meta);
+
+  card.append(check, body);
+  card.addEventListener('click', () => onOpen(trophy.id));
+  return card;
 }
 
-function metaTags(trophy, shielded) {
-  const meta = h('span', 'trophy-meta');
-  if (shielded) {
-    meta.append(h('span', 'tag tag-secret', 'SECRET'));
-    return meta;
-  }
-  meta.append(h('span', 'tag tag-kind', KIND_INFO[trophy.kind].label));
-  if (trophy.target) meta.append(h('span', 'tag', `Target ${trophy.target.toLocaleString('en-US')}`));
-  if (trophy.hidden) meta.append(h('span', 'tag tag-secret', 'SECRET'));
-  if (trophy.missable) meta.append(h('span', 'tag tag-missable', 'MISSABLE'));
-  return meta;
-}
+// The detail panel: official description first, then the missable warning
+// where one applies, then our own-words guide and the sources it rests on.
+export function detailPanel(trophy, { earned, shieldOn, onToggle }) {
+  const panel = el('section', 'detail');
+  panel.setAttribute('aria-live', 'polite');
+  const masked = shieldOn && trophy.secret && !earned;
 
-export function renderChips(container, trophies, activeKind, onPick) {
-  container.replaceChildren();
-  const counts = new Map();
-  for (const t of trophies) counts.set(t.kind, (counts.get(t.kind) ?? 0) + 1);
-  const make = (kind, label, count) => {
-    const chip = h('button', `chip${activeKind === kind ? ' active' : ''}`);
-    chip.type = 'button';
-    chip.append(label, h('span', 'chip-count', ` ${count}`));
-    chip.addEventListener('click', () => onPick(kind));
-    return chip;
-  };
-  container.append(make('all', 'All', trophies.length));
-  for (const kind of KIND_ORDER) {
-    if (kind === 'online' || counts.has(kind)) {
-      container.append(make(kind, KIND_INFO[kind].label, counts.get(kind) ?? 0));
-    }
-  }
-}
+  const head = el('div', 'detail-head');
+  head.append(el('h2', 'detail-name', masked ? 'Hidden trophy' : trophy.name));
+  const flags = el('div', 'detail-flags');
+  flags.append(gradeBadge(trophy), kindBadge(trophy));
+  if (trophy.missable) flags.append(el('span', 'badge missable', 'Missable'));
+  if (trophy.secret) flags.append(el('span', 'badge secret', 'Secret'));
+  flags.append(el('span', 'points', `${trophy.points} pts`));
+  head.append(flags);
+  panel.append(head);
 
-export function filterTrophies(trophies, filters, helpers) {
-  const q = filters.q.trim().toLowerCase();
-  return trophies.filter((t) => {
-    if (filters.kind !== 'all' && t.kind !== filters.kind) return false;
-    if (filters.grade !== 'all' && t.grade !== filters.grade) return false;
-    if (filters.hideEarned && helpers.isEarned(t.id)) return false;
-    if (q) {
-      if (helpers.isShielded(t)) return false;
-      const haystack = `${t.name} ${t.description} ${t.guide} ${KIND_INFO[t.kind].label}`.toLowerCase();
-      if (!haystack.includes(q)) return false;
-    }
-    return true;
-  });
-}
-
-export function renderList(listEl, shown, ctx) {
-  listEl.replaceChildren();
-  for (const t of shown) {
-    const shielded = ctx.isShielded(t);
-    const earned = ctx.isEarned(t.id);
-    const row = h('li', `trophy-row${earned ? ' is-earned' : ''}${ctx.selectedId === t.id ? ' selected' : ''}`);
-    row.dataset.id = t.id;
-
-    const box = document.createElement('input');
-    box.type = 'checkbox';
-    box.checked = earned;
-    box.setAttribute('aria-label', `Mark ${displayName(t, shielded)} as earned`);
-    box.addEventListener('change', () => ctx.onToggle(t.id, box.checked));
-    box.addEventListener('click', (e) => e.stopPropagation());
-
-    const nameBlock = h('span');
-    nameBlock.append(h('span', 'trophy-name', displayName(t, shielded)));
-    nameBlock.append(
-      h('span', 'trophy-desc', shielded ? 'Secret on PlayStation until earned.' : t.description),
-    );
-    nameBlock.append(metaTags(t, shielded));
-
-    const points = h('span', 'trophy-points', `${GRADE_INFO[t.grade].points}`);
-    points.append(h('small', null, 'pts'));
-
-    row.append(box, gradeBadge(t), nameBlock, points);
-    row.addEventListener('click', () => ctx.onSelect(t.id));
-    listEl.append(row);
-  }
-}
-
-export function renderDetail(panel, trophy, ctx) {
-  panel.replaceChildren();
-  if (!trophy) {
-    panel.append(h('p', 'placeholder-note', 'Pick a trophy from the list to read its guide.'));
-    return;
-  }
-  const earned = ctx.isEarned(trophy.id);
-  const shielded = ctx.isShielded(trophy);
-
-  panel.append(gradeBadge(trophy));
-
-  if (shielded) {
-    panel.append(h('h2', null, 'Hidden trophy'));
-    panel.append(
-      h(
-        'p',
-        'placeholder-note',
-        'The spoiler shield is on. This trophy is secret on PlayStation, so its name, description and guide stay covered until you earn it — then mark it here and the cover lifts. You can also switch the shield off in the toolbar to read everything now.',
-      ),
-    );
-    panel.append(earnRow(trophy, earned, ctx));
-    return;
-  }
-
-  panel.append(h('h2', null, trophy.name));
-  panel.append(h('p', 'official', `“${trophy.description}”`));
-
-  const meta = h('div', 'detail-meta');
-  meta.append(h('span', 'tag tag-kind', KIND_INFO[trophy.kind].label));
-  meta.append(h('span', 'tag', `${GRADE_INFO[trophy.grade].points} points`));
-  if (trophy.target) meta.append(h('span', 'tag', `Target ${trophy.target.toLocaleString('en-US')}`));
-  meta.append(h('span', 'tag', `Roadmap phase ${trophy.stage}`));
-  if (trophy.hidden) meta.append(h('span', 'tag tag-secret', 'SECRET'));
-  panel.append(meta);
+  panel.append(el('h3', 'detail-sub', 'Official description'));
+  panel.append(el('p', 'detail-desc',
+    masked ? 'Hidden on PlayStation until earned.' : trophy.description));
 
   if (trophy.missable) {
-    const warning = h('div', 'missable-warning');
-    const strong = h('strong', null, 'Missable — act in Chapter 1. ');
-    warning.append(
-      strong,
-      'One part of this trophy is only available during Chapter 1 and never comes back. It is the only missable trophy on the list; the guide below gives the moment to catch.',
-    );
-    panel.append(warning);
+    panel.append(el('p', 'missable-warning',
+      'Missable: the Chapter 1 meditation at Jason\u2019s house becomes ' +
+      'permanently unavailable after Chapter 1. Do it when Lucia offers, ' +
+      'and keep a manual save at the start of the chapter.'));
   }
 
-  panel.append(h('h3', null, 'Guide'));
-  panel.append(h('p', 'guide-text', trophy.guide));
-
-  panel.append(h('h3', null, 'Sources'));
-  const list = h('ul', 'sources');
-  for (const s of trophy.sources ?? []) {
-    const li = h('li');
-    const a = h('a', null, s.name);
-    a.href = s.url;
-    a.target = '_blank';
-    a.rel = 'noopener';
-    li.append(a);
-    list.append(li);
+  panel.append(el('h3', 'detail-sub', 'Guide'));
+  if (masked) {
+    panel.append(el('p', 'detail-guide',
+      'The guide for this trophy stays behind the spoiler shield until ' +
+      'you earn it, because even its official description is a spoiler.'));
+  } else {
+    panel.append(el('p', 'detail-guide', trophy.guide));
+    panel.append(el('h3', 'detail-sub', 'Sources'));
+    const list = el('ul', 'sources');
+    for (const source of trophy.sources ?? []) {
+      list.append(el('li', 'source', `${source.name} — ${source.url}`));
+    }
+    panel.append(list);
   }
-  panel.append(list);
 
-  panel.append(earnRow(trophy, earned, ctx));
-}
-
-function earnRow(trophy, earned, ctx) {
-  const row = h('label', 'earn-row');
-  const box = document.createElement('input');
+  const label = el('label', 'detail-earned');
+  const box = el('input');
   box.type = 'checkbox';
   box.checked = earned;
-  box.addEventListener('change', () => ctx.onToggle(trophy.id, box.checked));
-  row.append(box, h('span', null, earned ? 'Earned — nice one.' : 'Mark as earned'));
-  return row;
+  box.addEventListener('change', () => onToggle(trophy.id));
+  label.append(box, document.createTextNode(' I have earned this trophy'));
+  panel.append(label);
+  return panel;
 }
 
-export function renderProgress(trophies, tracker) {
-  const { count, points } = tracker.summary();
-  const totalPts = trophies.reduce((sum, t) => sum + GRADE_INFO[t.grade].points, 0);
-  document.getElementById('progress-count').textContent = `${count} of ${trophies.length} earned`;
-  document.getElementById('progress-points').textContent = `${points} / ${totalPts} pts`;
-  document.getElementById('progress-bar').style.width = `${(count / trophies.length) * 100}%`;
-  const note = document.getElementById('progress-note');
-  if (count === trophies.length) {
-    note.textContent = 'Every trophy earned — you are a Leonida Legend.';
-  } else if (count > 0) {
-    note.textContent = `${trophies.length - count} to go. Progress is saved in this browser; export it from the toolbar to keep a copy.`;
-  } else {
-    note.textContent = 'Tick a trophy off and it stays ticked — progress is saved in this browser.';
+// Header summary: earned count, points and the progress bar.
+export function progressSummary(summary) {
+  const wrap = el('div', 'progress');
+  const line = el('p', 'progress-line',
+    `${summary.count} of ${summary.total} trophies · ${summary.points} of ` +
+    `${summary.totalPoints} points · ${summary.percent}%`);
+  const bar = el('div', 'progress-bar');
+  const fill = el('div', 'progress-fill');
+  fill.style.width = `${summary.percent}%`;
+  bar.append(fill);
+  wrap.append(line, bar);
+  return wrap;
+}
+
+// The roadmap view: headline facts, the two disciplines (saves, cheats),
+// then the five phases with the trophies each one banks.
+export function roadmapView(trophiesById, earned, onOpen) {
+  const view = el('section', 'roadmap');
+  view.append(el('h2', 'roadmap-title', 'The road to the platinum'));
+  view.append(el('p', 'roadmap-intro', ROADMAP_INTRO));
+
+  const facts = el('dl', 'roadmap-facts');
+  for (const fact of ROADMAP_FACTS) {
+    const cell = el('div', 'fact');
+    cell.append(el('dt', '', fact.label), el('dd', '', fact.value));
+    facts.append(cell);
   }
+  view.append(facts);
+
+  for (const phase of PHASES) {
+    const block = el('article', 'phase');
+    const head = el('div', 'phase-head');
+    head.append(
+      el('span', 'phase-n', `Phase ${phase.n}`),
+      el('h3', 'phase-title', phase.title),
+      el('span', 'phase-hours', phase.hours),
+    );
+    block.append(head, el('p', 'phase-text', phase.text));
+    const chips = el('div', 'phase-trophies');
+    for (const id of phase.trophies) {
+      const trophy = trophiesById.get(id);
+      if (!trophy) continue;
+      const chip = el('button', 'phase-chip', trophy.name);
+      chip.type = 'button';
+      if (earned.has(id)) chip.classList.add('is-earned');
+      chip.addEventListener('click', () => onOpen(id));
+      chips.append(chip);
+    }
+    block.append(chips);
+    view.append(block);
+  }
+
+  const sources = el('p', 'roadmap-sources',
+    'Roadmap facts rest on: ' +
+    ROADMAP_SOURCES.map((s) => `${s.name} (${s.url})`).join('; ') + '.');
+  view.append(sources);
+  return view;
 }

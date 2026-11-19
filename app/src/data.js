@@ -1,54 +1,66 @@
-// Data access for the guide: loads app/data/trophies.json (a file of this app,
-// fetched relative to the page, so it works from any static server, offline)
-// and holds the small vocabularies the UI shares — grade labels and point
-// values, and the kind labels used by the filters.
+// Leonida Ledger — data access.
+//
+// The whole guide hangs off one file: data/trophies.json, fetched relative
+// to the page so the app works from any static server with app/ at its
+// root. Nothing else is ever requested: no fonts, no images, no APIs.
 
-export const GRADE_INFO = {
-  platinum: { label: 'Platinum', points: 300 },
-  gold: { label: 'Gold', points: 90 },
-  silver: { label: 'Silver', points: 30 },
-  bronze: { label: 'Bronze', points: 15 },
+export const GRADE_POINTS = { bronze: 15, silver: 30, gold: 90, platinum: 300 };
+
+export const GRADE_LABEL = {
+  bronze: 'Bronze',
+  silver: 'Silver',
+  gold: 'Gold',
+  platinum: 'Platinum',
 };
 
-export const GRADE_ORDER = ['platinum', 'gold', 'silver', 'bronze'];
+// Filter chips, in the order the guide presents them. "online" is part of
+// the vocabulary even though GTA VI ships with no online trophies.
+export const KINDS = [
+  { id: 'all', label: 'All 55' },
+  { id: 'story', label: 'Story' },
+  { id: 'missable', label: 'Missable' },
+  { id: 'collectibles', label: 'Collectibles' },
+  { id: 'activities', label: 'Activities' },
+  { id: 'online', label: 'Online' },
+  { id: 'platinum', label: 'Platinum' },
+];
 
-export const KIND_INFO = {
-  story: { label: 'Story' },
-  missable: { label: 'Missable' },
-  collectibles: { label: 'Collectibles' },
-  activities: { label: 'Activities' },
-  online: { label: 'Online' },
-  platinum: { label: 'Platinum' },
+export const KIND_LABEL = {
+  story: 'Story',
+  missable: 'Missable',
+  collectibles: 'Collectibles',
+  activities: 'Activities',
+  online: 'Online',
+  platinum: 'Platinum',
 };
 
-// The order the filter chips are shown in.
-export const KIND_ORDER = ['story', 'missable', 'collectibles', 'activities', 'online', 'platinum'];
+let cache = null;
 
-export async function loadGuide() {
+// Loads the trophy list once and keeps it for the session. Returns the
+// parsed document: { game, platform, list, trophies: [...] } where each
+// trophy carries id, name, description, grade, points, kind, secret,
+// missable, guide and sources.
+export async function loadGuideData() {
+  if (cache) return cache;
   const response = await fetch('data/trophies.json');
-  if (!response.ok) throw new Error(`trophies.json answered ${response.status}`);
-  const doc = await response.json();
-  const trophies = Array.isArray(doc) ? doc : doc.trophies;
-  return { doc, trophies };
-}
-
-export function trophyById(trophies, id) {
-  return trophies.find((t) => t.id === id) ?? null;
-}
-
-export function totalPoints(trophies) {
-  return trophies.reduce((sum, t) => sum + (GRADE_INFO[t.grade]?.points ?? 0), 0);
-}
-
-// Every distinct source cited anywhere in the data, in first-use order —
-// the roadmap footer and the about text draw from this, so a source is
-// written once, in the data file, and never repeated in code.
-export function collectSources(trophies) {
-  const seen = new Map();
-  for (const t of trophies) {
-    for (const s of t.sources ?? []) {
-      if (!seen.has(s.url)) seen.set(s.url, s);
-    }
+  if (!response.ok) {
+    throw new Error(`trophies.json answered ${response.status}`);
   }
-  return [...seen.values()];
+  cache = await response.json();
+  return cache;
+}
+
+// Display name for a trophy under the spoiler shield: secret trophies the
+// reader has not earned yet are masked, everything else shows its name.
+export function shownName(trophy, earned, shieldOn) {
+  if (shieldOn && trophy.secret && !earned.has(trophy.id)) return 'Hidden trophy';
+  return trophy.name;
+}
+
+export function shownDescription(trophy, earned, shieldOn) {
+  if (shieldOn && trophy.secret && !earned.has(trophy.id)) {
+    return 'This trophy is secret on PlayStation. Its name and description stay ' +
+      'hidden until you earn it — or switch the spoiler shield off.';
+  }
+  return trophy.description;
 }

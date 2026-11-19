@@ -1,65 +1,62 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="en">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Leonida Ledger — GTA VI Trophy Guide &amp; Tracker</title>
+<meta name="description" content="An offline guide and tracker for all 55 Grand Theft Auto VI PlayStation 5 trophies: sourced guides, a five-phase platinum roadmap, a spoiler shield and a checklist that saves in your browser.">
 <link rel="stylesheet" href="style.css">
 </head>
 <body>
 <header class="site-head">
-  <div class="brand">
-    <p class="brand-mark">LEONIDA LEDGER</p>
-    <h1>GTA VI Trophy Guide &amp; Tracker</h1>
-    <p class="tagline">Every one of the 55 PlayStation 5 trophies for Grand Theft Auto VI — the official names, descriptions and grades, a cited guide for each, a roadmap to the platinum, and a tracker that remembers where you left off. Works fully offline.</p>
+  <div class="head-text">
+    <p class="kicker">Grand Theft Auto VI · PlayStation 5</p>
+    <h1>Leonida Ledger</h1>
+    <p class="tagline">Every one of the 55 trophies, a guide to each in our own
+      words with its sources named, a five-phase road to the platinum, and a
+      tracker that keeps your progress in this browser. Works fully offline.</p>
   </div>
-  <div class="progress-box">
-    <div class="progress-line"><span id="progress-count">0 of 55 earned</span><span id="progress-points">0 / 1350 pts</span></div>
-    <div class="progress-track"><div id="progress-bar"></div></div>
-    <p id="progress-note" class="progress-note">Tick a trophy off and it stays ticked — progress is saved in this browser.</p>
-  </div>
+  <div id="progress-slot" class="progress-slot"></div>
 </header>
 
-<nav class="view-tabs" aria-label="Views">
-  <button id="tab-guide" class="tab active" type="button">Trophy guide</button>
-  <button id="tab-roadmap" class="tab" type="button">Platinum roadmap</button>
+<nav class="controls" aria-label="Guide controls">
+  <div class="tabs" role="tablist">
+    <button type="button" id="tab-guide" class="tab is-active">Guide &amp; tracker</button>
+    <button type="button" id="tab-roadmap" class="tab">Platinum roadmap</button>
+  </div>
+  <input type="search" id="search-box" placeholder="Search trophies…" aria-label="Search trophies">
+  <select id="grade-filter" aria-label="Filter by grade"></select>
+  <label class="shield-label">
+    <input type="checkbox" id="shield-toggle">
+    Spoiler shield (hide the 28 secret trophies until earned)
+  </label>
+  <div class="tracker-actions">
+    <button type="button" id="export-btn">Export progress</button>
+    <button type="button" id="import-btn">Import progress</button>
+    <input type="file" id="import-input" accept="application/json" hidden>
+    <button type="button" id="reset-btn">Reset</button>
+  </div>
 </nav>
 
-<main>
-  <section id="view-guide">
-    <div class="toolbar">
-      <label class="search">Search
-        <input id="search" type="search" placeholder="Trophy, mission, character, place…">
-      </label>
-      <div class="chips" id="kind-chips" role="group" aria-label="Filter by kind"></div>
-      <label class="grade-pick">Grade
-        <select id="grade-filter">
-          <option value="all">All grades</option>
-          <option value="platinum">Platinum</option>
-          <option value="gold">Gold</option>
-          <option value="silver">Silver</option>
-          <option value="bronze">Bronze</option>
-        </select>
-      </label>
-      <label class="switch"><input type="checkbox" id="spoiler-toggle"> Spoiler shield</label>
-      <label class="switch"><input type="checkbox" id="earned-toggle"> Hide earned</label>
-      <button id="export-btn" type="button">Export progress</button>
-      <label class="import-label">Import progress <input id="import-input" type="file" accept="application/json,.json"></label>
-    </div>
-    <p id="list-summary" class="list-summary"></p>
-    <div class="guide-layout">
-      <ol id="trophy-list" class="trophy-list"></ol>
-      <aside id="detail" class="detail" aria-label="Trophy detail"></aside>
-    </div>
-  </section>
+<p id="status-line" class="status-line" role="status"></p>
 
-  <section id="view-roadmap" hidden>
-    <div id="roadmap"></div>
+<main>
+  <section id="guide-view">
+    <div id="kind-chips" class="chips" aria-label="Filter by kind"></div>
+    <div class="guide-grid">
+      <div id="trophy-list" class="trophy-list"></div>
+      <aside id="detail-slot" class="detail-slot"></aside>
+    </div>
   </section>
+  <section id="roadmap-slot" hidden></section>
 </main>
 
 <footer class="site-foot">
-  <p><strong>About this guide.</strong> Trophy names, descriptions and grades are the official PlayStation 5 list. Every guide is written for this app and names its sources beside it; where a trigger is still unconfirmed by those sources, the guide says so rather than guess. Point values are the standard PlayStation values (bronze 15, silver 30, gold 90, platinum 300). An unofficial fan work: no Rockstar Games logo or artwork is used, and nothing here is affiliated with Rockstar Games or PlayStation.</p>
+  <p>Official trophy names, descriptions and grades are as PlayStation
+    publishes them. Every guide here is written for this page and names its
+    sources beside it — a source is cited, never copied. Progress is stored
+    only in your browser (localStorage) and leaves it only when you export
+    it. No Rockstar Games artwork is used; the look is our own.</p>
 </footer>
 
 <script type="module" src="src/main.js"></script>
