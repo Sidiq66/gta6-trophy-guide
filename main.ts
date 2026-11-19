@@ -27,8 +27,15 @@ const GATE_CAPS = {
 };
 
 async function handIn() {
-  await rm(outputDir, { recursive: true, force: true });
+  // Clear the previous hand-in's entries, never the output directory
+  // itself: in the grader /output is a mount point, and rmdir of it
+  // fails EPERM. Everything this program writes lives in app/,
+  // screenshots/ and dossier.json, so removing those three is the
+  // same clean slate without touching the directory.
   await mkdir(outputDir, { recursive: true });
+  await rm(join(outputDir, 'app'), { recursive: true, force: true });
+  await rm(join(outputDir, 'screenshots'), { recursive: true, force: true });
+  await rm(join(outputDir, 'dossier.json'), { force: true });
   await cp(join(here, 'app'), join(outputDir, 'app'), { recursive: true });
   await cp(join(here, 'screenshots'), join(outputDir, 'screenshots'), { recursive: true });
   const dossierText = await buildDossier(outputDir, GATE_CAPS);
