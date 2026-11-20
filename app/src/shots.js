@@ -1,10 +1,14 @@
 // Leonida Ledger — screenshot states.
 //
 // The maker's shots are taken from fixed URLs so each one is reproducible:
-//   ?shot=list                          the checklist, first detail open
-//   ?shot=detail&trophy=<id>            one trophy's guide, front and centre
-//   ?shot=roadmap                       the platinum roadmap
+//   ?shot=list&shield=off&trophy=<id>   the checklist, one guide open
+//   ?shot=detail&trophy=<id>&shield=off
+//                                       one trophy's guide, front and centre
+//   ?shot=roadmap                       the platinum roadmap, demo progress
 //   ?shot=tracker                       the tracker with a demo progress set
+// A shot may pin the spoiler shield with &shield=on|off: the list and
+// detail frames run with it off so the official names fill the frame,
+// the tracker frame keeps it on so masked and revealed trophies compare.
 // When a shot state has painted, window.__shotReady is set so the capture
 // tooling knows the frame is final.
 
@@ -13,6 +17,7 @@ export function readShot() {
   return {
     mode: params.get('shot') || '',
     trophy: params.get('trophy') || '',
+    shield: params.get('shield') || '',
   };
 }
 

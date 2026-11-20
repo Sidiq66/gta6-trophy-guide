@@ -12,9 +12,11 @@
   <div class="head-text">
     <p class="kicker">Grand Theft Auto VI · PlayStation 5</p>
     <h1>Leonida Ledger</h1>
-    <p class="tagline">Every one of the 55 trophies, a guide to each in our own
-      words with its sources named, a five-phase road to the platinum, and a
-      tracker that keeps your progress in this browser. Works fully offline.</p>
+    <p class="tagline">Every one of the 55 trophies with a step-by-step
+      checklist and a guide in our own words, sources named beside each; a
+      five-phase road to the platinum with the one missable moment flagged;
+      and a tracker that keeps your progress in this browser. Works fully
+      offline.</p>
   </div>
   <div id="progress-slot" class="progress-slot"></div>
 </header>
@@ -26,6 +28,16 @@
   </div>
   <input type="search" id="search-box" placeholder="Search trophies…" aria-label="Search trophies">
   <select id="grade-filter" aria-label="Filter by grade"></select>
+  <select id="sort-select" aria-label="Sort trophies">
+    <option value="guide">Guide order</option>
+    <option value="name">Name A–Z</option>
+    <option value="grade">Grade, rarest first</option>
+    <option value="points">Points, high first</option>
+  </select>
+  <label class="shield-label">
+    <input type="checkbox" id="remaining-toggle">
+    Remaining only
+  </label>
   <label class="shield-label">
     <input type="checkbox" id="shield-toggle">
     Spoiler shield (hide the 28 secret trophies until earned)

@@ -18,17 +18,23 @@ const state = {
   view: 'guide',           // 'guide' | 'roadmap'
   kind: 'all',
   grade: 'all',
+  sort: 'guide',
+  hideEarned: false,
   query: '',
   shieldOn: localStorage.getItem(SHIELD_KEY) !== 'off',
   selectedId: null,
   shot: readShot(),
 };
 
-// In tracker shot mode the app runs on a fixed demo set instead of the
-// reader's real progress, so the screenshot never depends on local state.
-const demoMode = state.shot.mode === 'tracker';
+// In the tracker and roadmap shot modes the app runs on a fixed demo set
+// instead of the reader's real progress, so the screenshots never depend
+// on local state.
+const demoMode = state.shot.mode === 'tracker' || state.shot.mode === 'roadmap';
 const tracker = new Tracker();
-if (demoMode) tracker.replace(DEMO_EARNED);
+if (demoMode) {
+  tracker.suspendPersistence();
+  tracker.replace(DEMO_EARNED);
+}
 
 const els = {
   progress: document.getElementById('progress-slot'),
@@ -39,6 +45,8 @@ const els = {
   roadmapView: document.getElementById('roadmap-slot'),
   search: document.getElementById('search-box'),
   grade: document.getElementById('grade-filter'),
+  sort: document.getElementById('sort-select'),
+  remaining: document.getElementById('remaining-toggle'),
   shield: document.getElementById('shield-toggle'),
   status: document.getElementById('status-line'),
 };
@@ -47,19 +55,37 @@ function earnedSet() {
   return tracker.earned;
 }
 
+// Opens one trophy in the guide view: the hero's next-up and missable
+// alert, and the roadmap's chips, all land here.
+function openTrophy(id) {
+  state.selectedId = id;
+  setView('guide');
+}
+
+const GRADE_RANK = { bronze: 0, silver: 1, gold: 2, platinum: 3 };
+
 function visibleTrophies() {
   const q = state.query.trim().toLowerCase();
-  return state.trophies.filter((trophy) => {
+  const rows = state.trophies.filter((trophy) => {
     if (state.kind !== 'all' && trophy.kind !== state.kind) return false;
     if (state.grade !== 'all' && trophy.grade !== state.grade) return false;
+    if (state.hideEarned && tracker.has(trophy.id)) return false;
     if (!q) return true;
     const haystack = `${trophy.name} ${trophy.description} ${trophy.guide}`.toLowerCase();
     return haystack.includes(q);
   });
+  if (state.sort === 'name') {
+    rows.sort((a, b) => a.name.localeCompare(b.name));
+  } else if (state.sort === 'grade') {
+    rows.sort((a, b) => (GRADE_RANK[b.grade] - GRADE_RANK[a.grade]) || (b.points - a.points));
+  } else if (state.sort === 'points') {
+    rows.sort((a, b) => b.points - a.points);
+  }
+  return rows;
 }
 
 function renderProgress() {
-  els.progress.replaceChildren(progressSummary(tracker.summary(state.trophies)));
+  els.progress.replaceChildren(progressSummary(state.trophies, tracker.earned, openTrophy));
 }
 
 function renderChips() {
@@ -126,10 +152,7 @@ function renderGuide() {
 
 function renderRoadmap() {
   renderProgress();
-  els.roadmapView.replaceChildren(roadmapView(state.byId, earnedSet(), (id) => {
-    state.selectedId = id;
-    setView('guide');
-  }));
+  els.roadmapView.replaceChildren(roadmapView(state.byId, earnedSet(), openTrophy));
 }
 
 function setView(view) {
@@ -162,6 +185,16 @@ function wireControls() {
     renderList();
   });
 
+  els.sort.addEventListener('change', () => {
+    state.sort = els.sort.value;
+    renderList();
+  });
+
+  els.remaining.addEventListener('change', () => {
+    state.hideEarned = els.remaining.checked;
+    renderList();
+  });
+
   els.shield.checked = state.shieldOn;
   els.shield.addEventListener('change', () => {
     state.shieldOn = els.shield.checked;
@@ -191,22 +224,59 @@ function wireControls() {
   });
 }
 
-// Applies the fixed screenshot states after the first render.
+// Applies the fixed screenshot states after the first render. A shot may
+// pin the spoiler shield (&shield=on|off) and the open trophy
+// (&trophy=<id>) so each frame shows exactly the state it means to prove:
+// the list and detail shots run with the shield off, so the official
+// names and descriptions are what the frame is full of, while the
+// tracker shot keeps the shield on, with the demo set earned, so masked
+// and revealed secret trophies sit side by side.
 function applyShot() {
-  const { mode, trophy } = state.shot;
-  if (mode === 'detail') {
-    state.selectedId = state.byId.has(trophy) ? trophy : 'positive-mental-attitude';
-    setView('guide');
-  } else if (mode === 'roadmap') {
-    setView('roadmap');
-  } else if (mode === 'tracker' || mode === 'list') {
-    state.selectedId = state.trophies[0]?.id ?? null;
-    setView('guide');
+  const { mode, trophy, shield } = state.shot;
+  if (shield === 'on' || shield === 'off') {
+    state.shieldOn = shield === 'on';
+    els.shield.checked = state.shieldOn;
   }
+  if (mode === 'roadmap') {
+    setView('roadmap');
+    // Frame the phases themselves, not just the preamble: scroll so the
+    // missable banner and the first phase block share the shot.
+    requestAnimationFrame(() => {
+      const anchor = els.roadmapView.querySelector('.roadmap-missable')
+        ?? els.roadmapView.querySelector('.phase');
+      if (anchor) {
+        const y = anchor.getBoundingClientRect().top + window.scrollY - 12;
+        window.scrollTo(0, Math.max(0, y));
+      }
+      markShotReady();
+    });
+    return;
+  }
+    if (state.byId.has(trophy)) state.selectedId = trophy;
+    else if (mode === 'detail') state.selectedId = 'positive-mental-attitude';
+    else if (!state.selectedId) state.selectedId = state.trophies[0]?.id ?? null;
+    setView('guide');
+    if (mode === 'detail') {
+      // Settle the sticky detail panel at the top of the frame so the
+      // whole panel — warning, steps, guide, sources — is in the shot.
+      requestAnimationFrame(() => {
+        const panel = els.detail.querySelector('.detail');
+        if (panel) {
+          const y = panel.getBoundingClientRect().top + window.scrollY - 12;
+          window.scrollTo(0, Math.max(0, y));
+        }
+        markShotReady();
+      });
+      return;
+    }
   markShotReady();
 }
 
 async function boot() {
+  if (state.shot.mode) document.body.classList.add('shot-mode');
+  if (state.shot.mode === 'list' || state.shot.mode === 'detail') {
+    document.body.classList.add('shot-tight');
+  }
   const data = await loadGuideData();
   state.trophies = data.trophies;
   state.byId = new Map(data.trophies.map((t) => [t.id, t]));

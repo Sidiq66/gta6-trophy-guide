@@ -116,6 +116,20 @@ export const PHASES = [
   },
 ];
 
+export const FREE_ROAM_INTRO =
+  'The phases above carry the story and the long grinds, but they are ' +
+  'not the whole list. These eighteen ask for no particular order and ' +
+  'none of them can be missed: the races and one-off feats (Earn Cash, ' +
+  'Not Kudos, Gunslinger, Hot Together, Retail Therapy), the introductions ' +
+  'that pop as you unfog the map (Baited My Tackle, Stick Fiddler), the ' +
+  'heists and capers that unlock as the story opens the world ' +
+  '(Sneakthief, Let\u2019s Go Bowling, Catch Me If You Can, Challenging ' +
+  'Tank, Pest Control), the slow-burn stats (Personal Best, Actions ' +
+  'Speak Louder) — and the five secret trophies whose triggers no named ' +
+  'guide has confirmed yet (In the Beginning\u2026, Capital Offense, Bad ' +
+  'Luck, I Guess, The Truth Is Out There, Ten Pin). Sweep them up ' +
+  'whenever free-roam takes you past them.';
+
 export const ROADMAP_SOURCES = [
   {
     name: 'PowerPyx — GTA 6 Trophy Guide & Roadmap',

@@ -30,6 +30,13 @@ export class Tracker {
   constructor() {
     this.earned = readStored();
     this.listeners = new Set();
+    this.persist = true;
+  }
+
+  // Screenshot demo states replace the earned set with a fixed one; that
+  // must never be written over the reader's real stored progress.
+  suspendPersistence() {
+    this.persist = false;
   }
 
   subscribe(fn) {
@@ -38,7 +45,7 @@ export class Tracker {
   }
 
   changed() {
-    writeStored(this.earned);
+    if (this.persist) writeStored(this.earned);
     for (const fn of this.listeners) fn(this.earned);
   }
 

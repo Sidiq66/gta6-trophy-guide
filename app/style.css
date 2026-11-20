@@ -63,13 +63,87 @@ body {
   color: #d9d2ba;
 }
 
-.progress-slot { min-width: 260px; }
+.progress-slot { min-width: 300px; max-width: 430px; }
+
+.progress-kicker {
+  margin: 0 0 0.15rem;
+  font-family: Verdana, Geneva, sans-serif;
+  font-size: 0.66rem;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--gilt-soft);
+}
 
 .progress-line {
   margin: 0 0 0.4rem;
   font-size: 1.02rem;
   color: var(--paper);
 }
+
+.grade-pips { display: flex; flex-wrap: wrap; gap: 0.35rem; margin-top: 0.5rem; }
+
+.pip {
+  font-family: Verdana, Geneva, sans-serif;
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+  padding: 0.16rem 0.5rem;
+  border-radius: 999px;
+  background: #22392b;
+  color: #d9d2ba;
+  border: 1px solid #3c5a45;
+}
+
+.pip.grade-bronze { border-color: var(--bronze); }
+.pip.grade-silver { border-color: var(--silver); }
+.pip.grade-gold { border-color: var(--gold); }
+.pip.grade-platinum { border-color: var(--platinum); }
+
+.missable-alert {
+  display: block;
+  margin-top: 0.55rem;
+  padding: 0.45rem 0.6rem;
+  width: 100%;
+  text-align: left;
+  font-family: Verdana, Geneva, sans-serif;
+  font-size: 0.74rem;
+  font-weight: 700;
+  line-height: 1.4;
+  color: #ffd9d4;
+  background: #571419;
+  border: 1px solid var(--danger);
+  border-radius: 5px;
+  cursor: pointer;
+}
+
+.missable-alert:hover { background: #6d1a20; }
+
+.next-up {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  align-items: center;
+  margin: 0.55rem 0 0;
+  font-size: 0.9rem;
+  color: #d9d2ba;
+}
+
+.next-up-label { color: var(--gilt-soft); font-style: italic; }
+
+.next-up-btn {
+  font-family: Verdana, Geneva, sans-serif;
+  font-size: 0.7rem;
+  font-weight: 700;
+  padding: 0.22rem 0.55rem;
+  border-radius: 999px;
+  border: 1px solid var(--gilt);
+  background: transparent;
+  color: var(--gilt-soft);
+  cursor: pointer;
+}
+
+.next-up-btn:hover { background: var(--gilt); color: #231a02; }
 
 .progress-bar {
   height: 12px;
@@ -190,6 +264,10 @@ main {
 }
 
 .card:hover { border-color: var(--gilt); }
+.card.grade-bronze { border-left-color: var(--bronze); }
+.card.grade-silver { border-left-color: var(--silver); }
+.card.grade-gold { border-left-color: var(--gold); }
+.card.grade-platinum { border-left-color: var(--platinum); }
 .card.is-selected { outline: 2px solid var(--gilt); }
 .card.is-earned { background: #f1ecd9; opacity: 0.92; }
 .card.is-earned .card-name { text-decoration: line-through; }
@@ -244,6 +322,54 @@ main {
 .detail-desc { margin: 0; font-style: italic; }
 .detail-guide { margin: 0; line-height: 1.55; font-size: 0.95rem; }
 
+.steps {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  counter-reset: step;
+}
+
+.step {
+  position: relative;
+  padding: 0.32rem 0 0.32rem 2rem;
+  line-height: 1.45;
+  font-size: 0.93rem;
+  border-bottom: 1px dashed var(--line);
+}
+
+.step:last-child { border-bottom: none; }
+
+.step::before {
+  counter-increment: step;
+  content: counter(step);
+  position: absolute;
+  left: 0;
+  top: 0.32rem;
+  width: 1.3rem;
+  height: 1.3rem;
+  border-radius: 4px;
+  background: var(--ink);
+  color: var(--gilt-soft);
+  font-family: Verdana, Geneva, sans-serif;
+  font-size: 0.72rem;
+  font-weight: 700;
+  line-height: 1.3rem;
+  text-align: center;
+}
+
+.tip {
+  margin: 0.7rem 0 0;
+  padding: 0.55rem 0.75rem;
+  background: #f3ecd2;
+  border: 1px solid var(--line);
+  border-left: 4px solid var(--gilt);
+  border-radius: 5px;
+  font-size: 0.88rem;
+  line-height: 1.5;
+}
+
+.tip-label { color: #7a5d00; }
+
 .missable-warning {
   margin: 0.8rem 0 0;
   padding: 0.6rem 0.75rem;
@@ -272,6 +398,58 @@ main {
 
 .roadmap-title { margin: 0.2rem 0 0.5rem; font-size: 1.7rem; }
 .roadmap-intro { max-width: 62rem; line-height: 1.55; }
+
+.path-summary {
+  margin: 0.9rem 0 0;
+  padding: 0.6rem 0.9rem;
+  background: var(--ink);
+  color: var(--paper);
+  border-radius: 6px;
+  font-family: Verdana, Geneva, sans-serif;
+  font-size: 0.82rem;
+  line-height: 1.5;
+}
+
+.roadmap-missable {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.6rem;
+  align-items: center;
+  margin: 0 0 1.1rem;
+  padding: 0.65rem 0.85rem;
+  background: var(--danger-bg);
+  border: 1px solid var(--danger);
+  border-radius: 6px;
+  color: var(--danger);
+  font-size: 0.92rem;
+  line-height: 1.5;
+}
+
+.roadmap-missable .next-up-btn { border-color: var(--danger); color: var(--danger); }
+.roadmap-missable .next-up-btn:hover { background: var(--danger); color: #fff; }
+
+.phase-meter {
+  height: 8px;
+  margin-top: 0.7rem;
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  background: var(--paper-2);
+  overflow: hidden;
+}
+
+.phase-meter-fill {
+  height: 100%;
+  background: linear-gradient(90deg, var(--gilt), var(--gilt-soft));
+}
+
+.phase-banked {
+  margin: 0.35rem 0 0;
+  font-family: Verdana, Geneva, sans-serif;
+  font-size: 0.74rem;
+  color: var(--muted);
+}
+
+.phase-freeroam { border-style: dashed; }
 
 .roadmap-facts {
   display: flex;
@@ -351,3 +529,25 @@ main {
   main, .controls, .status-line { padding-left: 1rem; padding-right: 1rem; }
   .site-head { padding-left: 1rem; padding-right: 1rem; }
 }
+
+/* Screenshot states (?shot=…): the same app, framed tighter so a single
+   1280×720 capture holds the header, the controls and as much of the
+   guide as the frame allows. Nothing is hidden that a shot exists to
+   prove — the tagline goes, the data stays. */
+body.shot-mode .tagline { display: none; }
+body.shot-mode .site-head { padding-top: 0.8rem; padding-bottom: 0.7rem; }
+body.shot-mode .site-head h1 { font-size: 2rem; }
+body.shot-mode .controls { padding-top: 0.45rem; padding-bottom: 0.45rem; }
+body.shot-mode main { padding-top: 0.55rem; }
+body.shot-mode .status-line { display: none; }
+body.shot-tight .next-up { display: none; }
+body.shot-tight .grade-pips { display: none; }
+
+/* The detail panel, framed tighter in shots so a full entry — warning,
+   steps, guide and its named sources — fits one 720px frame. */
+body.shot-mode .detail { gap: 0.5rem; padding: 0.9rem 1.1rem; }
+body.shot-mode .detail-name { font-size: 1.5rem; }
+body.shot-mode .detail-guide { font-size: 0.9rem; line-height: 1.45; }
+body.shot-mode .step { padding-top: 0.18rem; padding-bottom: 0.18rem; font-size: 0.9rem; }
+body.shot-mode .detail-warning { padding: 0.55rem 0.75rem; }
+body.shot-mode .detail-earned { display: none; }

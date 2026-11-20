@@ -5,7 +5,13 @@
 // turns state into elements.
 
 import { GRADE_LABEL, KIND_LABEL, shownDescription, shownName } from './data.js';
-import { PHASES, ROADMAP_FACTS, ROADMAP_INTRO, ROADMAP_SOURCES } from './roadmap.js';
+import {
+  FREE_ROAM_INTRO,
+  PHASES,
+  ROADMAP_FACTS,
+  ROADMAP_INTRO,
+  ROADMAP_SOURCES,
+} from './roadmap.js';
 
 function el(tag, className, text) {
   const node = document.createElement(tag);
@@ -27,8 +33,10 @@ export function kindBadge(trophy) {
 // One row of the checklist. Clicking the row opens the trophy's detail;
 // the checkbox at its left is the tracker control. earnedIds is the live
 // earned set, used to decide whether a secret trophy may show its name.
+// The card carries its grade as a class so the left stripe can wear the
+// grade's colour: the whole list reads as grades at a glance.
 export function trophyCard(trophy, { earned, earnedIds, shieldOn, selected, onToggle, onOpen }) {
-  const card = el('article', 'card');
+  const card = el('article', `card grade-${trophy.grade}`);
   if (earned) card.classList.add('is-earned');
   if (selected) card.classList.add('is-selected');
   card.dataset.trophyId = trophy.id;
@@ -85,13 +93,27 @@ export function detailPanel(trophy, { earned, shieldOn, onToggle }) {
       'and keep a manual save at the start of the chapter.'));
   }
 
-  panel.append(el('h3', 'detail-sub', 'Guide'));
   if (masked) {
+    panel.append(el('h3', 'detail-sub', 'Guide'));
     panel.append(el('p', 'detail-guide',
       'The guide for this trophy stays behind the spoiler shield until ' +
       'you earn it, because even its official description is a spoiler.'));
   } else {
+    if (Array.isArray(trophy.steps) && trophy.steps.length) {
+      panel.append(el('h3', 'detail-sub', 'How to earn it'));
+      const steps = el('ol', 'steps');
+      for (const step of trophy.steps) {
+        steps.append(el('li', 'step', step));
+      }
+      panel.append(steps);
+    }
+    panel.append(el('h3', 'detail-sub', 'Guide'));
     panel.append(el('p', 'detail-guide', trophy.guide));
+    if (trophy.tip) {
+      const tip = el('p', 'tip');
+      tip.append(el('strong', 'tip-label', 'Field tip: '), document.createTextNode(trophy.tip));
+      panel.append(tip);
+    }
     panel.append(el('h3', 'detail-sub', 'Sources'));
     const list = el('ul', 'sources');
     for (const source of trophy.sources ?? []) {
@@ -110,26 +132,116 @@ export function detailPanel(trophy, { earned, shieldOn, onToggle }) {
   return panel;
 }
 
-// Header summary: earned count, points and the progress bar.
-export function progressSummary(summary) {
+// The order the roadmap banks trophies in: the five phases flattened,
+// then everything the phases leave to free-roam, in list order. The hero
+// uses it to name the next trophy on the road.
+export function roadmapOrder(trophies) {
+  const byId = new Map(trophies.map((t) => [t.id, t]));
+  const ordered = [];
+  const placed = new Set();
+  for (const phase of PHASES) {
+    for (const id of phase.trophies) {
+      if (byId.has(id) && !placed.has(id)) {
+        ordered.push(byId.get(id));
+        placed.add(id);
+      }
+    }
+  }
+  for (const trophy of trophies) {
+    if (!placed.has(trophy.id)) ordered.push(trophy);
+  }
+  return ordered;
+}
+
+function phaseLabelFor(id) {
+  for (const phase of PHASES) {
+    if (phase.trophies.includes(id)) return `Phase ${phase.n}`;
+  }
+  return 'Free-roam sweep';
+}
+
+// Header hero: the state of the platinum run at a glance. The big line
+// and bar, a pip per grade, the next trophy the roadmap would bank, and
+// — while it is still unearned — the one missable moment flagged in red,
+// because Chapter 1 is the only place the run can actually be lost.
+export function progressSummary(trophies, earned, onOpen) {
   const wrap = el('div', 'progress');
-  const line = el('p', 'progress-line',
-    `${summary.count} of ${summary.total} trophies · ${summary.points} of ` +
-    `${summary.totalPoints} points · ${summary.percent}%`);
+  let count = 0;
+  let points = 0;
+  let totalPoints = 0;
+  const gradeTotal = {};
+  const gradeEarned = {};
+  for (const trophy of trophies) {
+    totalPoints += trophy.points;
+    gradeTotal[trophy.grade] = (gradeTotal[trophy.grade] ?? 0) + 1;
+    if (earned.has(trophy.id)) {
+      count += 1;
+      points += trophy.points;
+      gradeEarned[trophy.grade] = (gradeEarned[trophy.grade] ?? 0) + 1;
+    }
+  }
+  const percent = trophies.length ? Math.round((count / trophies.length) * 100) : 0;
+
+  wrap.append(el('p', 'progress-kicker', 'Your road to the platinum'));
+  wrap.append(el('p', 'progress-line',
+    `${count} of ${trophies.length} trophies · ${points} of ${totalPoints} points · ${percent}%`));
   const bar = el('div', 'progress-bar');
   const fill = el('div', 'progress-fill');
-  fill.style.width = `${summary.percent}%`;
+  fill.style.width = `${percent}%`;
   bar.append(fill);
-  wrap.append(line, bar);
+  wrap.append(bar);
+
+  const pips = el('div', 'grade-pips');
+  for (const grade of ['bronze', 'silver', 'gold', 'platinum']) {
+    if (!gradeTotal[grade]) continue;
+    pips.append(el('span', `pip grade-${grade}`,
+      `${GRADE_LABEL[grade]} ${gradeEarned[grade] ?? 0}/${gradeTotal[grade]}`));
+  }
+  wrap.append(pips);
+
+  const missable = trophies.find((t) => t.missable);
+  if (missable && !earned.has(missable.id)) {
+    const alert = el('button', 'missable-alert',
+      `\u26A0 Missable still open: ${missable.name} — the Chapter 1 moment cannot be replayed`);
+    alert.type = 'button';
+    alert.addEventListener('click', () => onOpen(missable.id));
+    wrap.append(alert);
+  }
+
+  const next = roadmapOrder(trophies).find((t) => !earned.has(t.id) && t.grade !== 'platinum');
+  if (next) {
+    const line = el('p', 'next-up');
+    line.append(
+      el('span', 'next-up-label', 'Next on the road: '),
+      document.createTextNode(`${next.name} (${phaseLabelFor(next.id)})`),
+    );
+    const jump = el('button', 'next-up-btn', 'Open its guide');
+    jump.type = 'button';
+    jump.addEventListener('click', () => onOpen(next.id));
+    line.append(jump);
+    wrap.append(line);
+  } else if (count === trophies.length) {
+    wrap.append(el('p', 'next-up', 'The ledger is closed: every trophy earned. Vice Got a Price!'));
+  }
   return wrap;
 }
 
-// The roadmap view: headline facts, the two disciplines (saves, cheats),
-// then the five phases with the trophies each one banks.
+// The roadmap view: a one-line summary of the whole path, the headline
+// facts, a missable banner while the Chapter 1 moment is still open, the
+// two disciplines (saves, cheats), then the five phases with the trophies
+// each one banks and a live count of how many are already in. A closing
+// block sweeps up every trophy the phases leave to free-roam, so all 55
+// are accounted for on this page.
 export function roadmapView(trophiesById, earned, onOpen) {
   const view = el('section', 'roadmap');
   view.append(el('h2', 'roadmap-title', 'The road to the platinum'));
   view.append(el('p', 'roadmap-intro', ROADMAP_INTRO));
+
+  const all = [...trophiesById.values()];
+  const bankedTotal = all.filter((t) => earned.has(t.id)).length;
+  view.append(el('p', 'path-summary',
+    `The whole path: 5 phases · ~200 hours · 1 playthrough · ${bankedTotal} of ` +
+    `${all.length} trophies banked so far · 1 missable moment, and it lives in Phase 1.`));
 
   const facts = el('dl', 'roadmap-facts');
   for (const fact of ROADMAP_FACTS) {
@@ -139,6 +251,20 @@ export function roadmapView(trophiesById, earned, onOpen) {
   }
   view.append(facts);
 
+  const missable = all.find((t) => t.missable);
+  if (missable && !earned.has(missable.id)) {
+    const banner = el('p', 'roadmap-missable',
+      `Before anything else: ${missable.name} can be lost for good in Chapter 1. ` +
+      'Keep a manual save at the chapter\u2019s start, and meditate with Lucia at ' +
+      'Jason\u2019s house when she offers, after Down to Earth.');
+    const open = el('button', 'next-up-btn', 'Open its guide');
+    open.type = 'button';
+    open.addEventListener('click', () => onOpen(missable.id));
+    banner.append(open);
+    view.append(banner);
+  }
+
+  const placed = new Set();
   for (const phase of PHASES) {
     const block = el('article', 'phase');
     const head = el('div', 'phase-head');
@@ -149,9 +275,18 @@ export function roadmapView(trophiesById, earned, onOpen) {
     );
     block.append(head, el('p', 'phase-text', phase.text));
     const chips = el('div', 'phase-trophies');
+    let banked = 0;
+    let phasePoints = 0;
+    let bankedPoints = 0;
     for (const id of phase.trophies) {
       const trophy = trophiesById.get(id);
       if (!trophy) continue;
+      placed.add(id);
+      phasePoints += trophy.points;
+      if (earned.has(id)) {
+        banked += 1;
+        bankedPoints += trophy.points;
+      }
       const chip = el('button', 'phase-chip', trophy.name);
       chip.type = 'button';
       if (earned.has(id)) chip.classList.add('is-earned');
@@ -159,6 +294,39 @@ export function roadmapView(trophiesById, earned, onOpen) {
       chips.append(chip);
     }
     block.append(chips);
+    const total = phase.trophies.length;
+    const meter = el('div', 'phase-meter');
+    const meterFill = el('div', 'phase-meter-fill');
+    meterFill.style.width = total ? `${Math.round((banked / total) * 100)}%` : '0%';
+    meter.append(meterFill);
+    block.append(meter, el('p', 'phase-banked',
+      `${banked} of ${total} banked · ${bankedPoints} of ${phasePoints} points`));
+    view.append(block);
+  }
+
+  const rest = all.filter((t) => !placed.has(t.id));
+  if (rest.length) {
+    const block = el('article', 'phase phase-freeroam');
+    const head = el('div', 'phase-head');
+    head.append(
+      el('span', 'phase-n', 'Any time'),
+      el('h3', 'phase-title', 'The open ledger — free-roam sweeps'),
+      el('span', 'phase-hours', 'no fixed order'),
+    );
+    block.append(head, el('p', 'phase-text', FREE_ROAM_INTRO));
+    const chips = el('div', 'phase-trophies');
+    let banked = 0;
+    for (const trophy of rest) {
+      if (earned.has(trophy.id)) banked += 1;
+      const chip = el('button', 'phase-chip', trophy.name);
+      chip.type = 'button';
+      if (earned.has(trophy.id)) chip.classList.add('is-earned');
+      chip.addEventListener('click', () => onOpen(trophy.id));
+      chips.append(chip);
+    }
+    block.append(chips);
+    block.append(el('p', 'phase-banked',
+      `${banked} of ${rest.length} banked · every one of the 55 is now on this page`));
     view.append(block);
   }
 
